@@ -1,17 +1,18 @@
 motor-tools
 ===========
 
-Tools for developing and testing Motor, an asynchronous Python driver for Tornado and MongoDB.
+Tools for developing and testing Motor, an asynchronous Python driver for
+Tornado and MongoDB.
 
-See https://github.com/ajdavis/mongo-python-driver/tree/motor/ for Motor development while Motor is in alpha.
+http://emptysquare.net/motor
 
 Benchmarking
 ------------
 
-`benchmark.py`: Reference benchmark using synchronous PyMongo
+`pymongo_benchmark.py`: Reference benchmark using synchronous PyMongo
 
-`asyncmongobenchmark.py`: Reference benchmark using bit.ly's AsyncMongo
+`asyncmongo_benchmark.py`: Reference benchmark using bit.ly's AsyncMongo
 
-`motorbenchmark.py`: Motor benchmark
+`motor_benchmark.py`: Motor benchmark
 
-`motorbenchmark.py`: Motor benchmark using Tornado's generator API
+`motor_benchmark_gen.py`: Motor benchmark using Tornado's generator API
