@@ -16,14 +16,18 @@
    of the similarity between Motor's and AsyncMongo's interfaces.
 """
 
-from benchmark_common import per_trial, batch_size
+import motor
 from tornado import ioloop
+
+from benchmark_common import per_trial, batch_size
 
 
 def insert(callback, asyncdb, collection, object):
-    """Asynchronous, SAFE inserts -- this is unfairly slow for AsyncMongo,
-       since Motor and PyMongo do unsafe inserts for this test
+    """Asynchronous inserts -- this is unfairly slow for AsyncMongo,
+       since Motor and PyMongo do unsafe inserts for this test and AsyncMongo
+       does safe.
     """
+    is_motor = isinstance(asyncdb, motor.MotorDatabase)
     i = [per_trial]
     def inner_insert(result, error):
         if error:
@@ -37,12 +41,17 @@ def insert(callback, asyncdb, collection, object):
             to_insert = object.copy()
             to_insert["x"] = i
             asyncdb[collection].insert(
-                to_insert, callback=inner_insert)
+                to_insert, callback=inner_insert, safe=(not is_motor))
 
     inner_insert(None, None)
 
 
 def insert_batch(callback, asyncdb, collection, object):
+    """Asynchronous bulk inserts -- this is unfairly slow for AsyncMongo,
+       since Motor and PyMongo do unsafe inserts for this test and AsyncMongo
+       does safe.
+    """
+    is_motor = isinstance(asyncdb, motor.MotorDatabase)
     i = [int(per_trial / batch_size)]
     def inner_insert_batch(result, error):
         if error:
@@ -54,7 +63,9 @@ def insert_batch(callback, asyncdb, collection, object):
         else:
             i[0] -= 1
             asyncdb[collection].insert(
-                [object] * batch_size, callback=inner_insert_batch)
+                [object] * batch_size,
+                callback=inner_insert_batch,
+                safe=(not is_motor))
 
     inner_insert_batch(None, None)
 
