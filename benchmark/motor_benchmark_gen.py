@@ -58,5 +58,5 @@ def find(callback, db, collection, x):
 
 
 if __name__ == "__main__":
-    trial_db = motor.MotorConnection().open_sync().benchmark
+    trial_db = motor.MotorClient().open_sync().benchmark
     main(globals())

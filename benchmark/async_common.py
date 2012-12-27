@@ -63,7 +63,7 @@ def insert_batch(callback, asyncdb, collection, object):
         else:
             i[0] -= 1
             asyncdb[collection].insert(
-                [object] * batch_size,
+                [object.copy() for _ in range(batch_size)],
                 callback=inner_insert_batch,
                 safe=(not is_motor))
 

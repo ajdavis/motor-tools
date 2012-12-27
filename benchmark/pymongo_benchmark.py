@@ -22,7 +22,7 @@ sys.path[0:0] = [""]
 
 from benchmark_common import per_trial, batch_size, main
 
-from pymongo import connection
+from pymongo import mongo_client
 from pymongo import ASCENDING
 
 
@@ -36,7 +36,7 @@ def insert(db, collection, object):
 
 def insert_batch(db, collection, object):
     for i in range(per_trial / batch_size):
-        db[collection].insert([object] * batch_size)
+        db[collection].insert([object.copy() for _ in xrange(batch_size)])
 
 
 def find_one(db, collection, x):
@@ -54,5 +54,5 @@ def run(function, *args):
 
 
 if __name__ == "__main__":
-    trial_db = connection.Connection().benchmark
+    trial_db = mongo_client.MongoClient().benchmark
     main(globals())
