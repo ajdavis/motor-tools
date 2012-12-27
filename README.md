@@ -9,10 +9,16 @@ http://emptysquare.net/motor
 Benchmarking
 ------------
 
-`pymongo_benchmark.py`: Reference benchmark using synchronous PyMongo
+`benchmark/pymongo_benchmark.py`: Reference benchmark using synchronous PyMongo
 
-`asyncmongo_benchmark.py`: Reference benchmark using bit.ly's AsyncMongo
+`benchmark/asyncmongo_benchmark.py`: Reference benchmark using bit.ly's AsyncMongo
 
-`motor_benchmark.py`: Motor benchmark
+`benchmark/motor_benchmark.py`: Motor benchmark
 
-`motor_benchmark_gen.py`: Motor benchmark using Tornado's generator API
+`benchmark/motor_benchmark_gen.py`: Motor benchmark using Tornado's generator API
+
+Testing
+-------
+
+`functional_test/test_motor_crosshost_copydb.py`: Start two instances of mongod
+and test copying a database from one to the other with auth and Motor.
