@@ -15,6 +15,7 @@
 """MongoDB benchmarking suite."""
 from functools import partial
 import time
+import math
 
 from tornado import gen
 from tornado.ioloop import IOLoop
@@ -40,21 +41,24 @@ def trial(c, load, duration, warmup, maxqlen):
     st = State()
     st.success = True
     st.qlen = 0
+    st.nstarted = 0
     st.ncompleted = 0
-    st.should_record = False
-
-    multiplier = 100
-
-    def start_recording():
-        st.should_record = True
-
-    def stop_recording():
-        st.should_record = False
+#    st.should_record = False
+#
+#    def start_recording():
+#        print 'start recording'
+#        st.should_record = True
+#
+#    def stop_recording():
+#        print 'stop recording'
+#        st.should_record = False
 
     loop = IOLoop.instance()
 
     # Start recording after warmup
-    loop.add_timeout(time.time() + warmup, start_recording)
+#    loop.add_timeout(time.time() + warmup, start_recording)
+#    loop.add_timeout(time.time() + duration + warmup, stop_recording)
+    start = time.time()
 
     @gen.engine
     def _trial(callback):
@@ -67,32 +71,52 @@ def trial(c, load, duration, warmup, maxqlen):
                 st.success = False
             else:
                 st.qlen -= 1
-                if st.should_record:
+#                if st.should_record:
+                if warmup < (time.time() - start) < warmup + duration:
+#                    print 'record'
                     st.ncompleted += 1
 
         now = time.time()
 #        while st.qlen < maxqlen and (now - start) < (duration + warmup):
-        while (now - start) < (duration + warmup):
+        while (now - start) < (warmup + duration):
 #            c.test.test.find_one(callback=partial(found_one, should_record))
-            for _ in range(multiplier):
+            seconds_remaining = (duration + warmup) - (now - start)
+            nexpected = (now - start) * load
+            n_to_go = load * duration - st.ncompleted
+            if n_to_go > 0:
+#                rate_now = n_to_go / seconds_remaining
+                interval = seconds_remaining / n_to_go
+
+#                n_to_run = int(math.ceil(nexpected - st.nstarted))
                 st.qlen += 1
-                found_one(None, None)
+                loop.add_callback(partial(found_one, None, None))
+#            for _ in range(n_to_run):
+#                st.qlen += 1
+#                st.nstarted += 1
+##                found_one(None, None)
 #                loop.add_callback(partial(found_one, None, None))
 
-            interval = multiplier / float(load)
 #            interval = benchmark2_common.poisson_interval(multiplier / float(load))
 #            yield gen.Task(loop.add_callback)
-            yield gen.Task(loop.add_timeout, now + interval)
-            if now - last_logged > 1:
-                print 'should_record', st.should_record, 'interval %.2f' % interval, 'qlen', st.qlen, 'ncompleted', st.ncompleted
-                last_logged = now
+                if interval > .001:
+                    yield gen.Task(loop.add_timeout, now + interval)
+                else:
+                    yield gen.Task(loop.add_callback)
+
+                if now - last_logged > 1:
+#                if True:
+                    print 'so far', now - start, 'seconds_remaining', seconds_remaining, 'nexpected', nexpected, 'n_to_go', n_to_go, 'interval %.2f' % interval, 'qlen', st.qlen, 'ncompleted', st.ncompleted
+                    last_logged = now
+            else:
+                # n_to_go isn't greater than zero; wait to finish
+                print 'waiting to finish'
+                yield gen.Task(loop.add_timeout, start + warmup + duration)
 
             now = time.time()
 
         print 'quitting with qlen', st.qlen
         callback()
 
-    start = time.time()
     _trial(loop.stop)
     loop.start()
     return st.success, st.ncompleted / float(duration)
