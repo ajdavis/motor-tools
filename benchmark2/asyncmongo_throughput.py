@@ -14,44 +14,26 @@
 
 """MongoDB benchmarking suite."""
 
-from functools import partial
 import logging
 logging.getLogger().setLevel(1000) # silence everything
 
-from tornado.ioloop import IOLoop
-import toro # from http://pypi.python.org/pypi/toro/
-import motor
+import asyncmongo
 import pymongo
 
 import benchmark2_common
 
 
 def connect():
-    loop = IOLoop.instance()
-    c = motor.MotorClient()
-    c.open(callback=lambda result, error: loop.stop())
-    loop.start()
-    return c
+    db = asyncmongo.Client(pool_id='mydb', host='127.0.0.1', port=27017, maxcached=6000, maxconnections=6000, dbname='test')
+    return db
 
 
-c = connect()
-
-
-semaphore = toro.Semaphore(10)
-
-
-def _post_fn(callback, result, error):
-    semaphore.release()
-    callback(result, error)
+db = connect()
 
 
 # This is what we're benchmarking
-def _inner_fn(callback, semaphore_result):
-    c.test.test.find_one(callback=partial(_post_fn, callback))
-
-
 def fn(callback):
-    semaphore.acquire(callback=partial(_inner_fn, callback))
+    db.test.find_one({}, callback=callback)
 
 
 if __name__ == '__main__':

@@ -44,20 +44,18 @@ def main(total, concurrency, open_sync):
 
     db = c.benchmark
 
-    @gen.engine
-    def find(callback):
+    def found(result, error, nremaining, callback):
+        assert not error
+        assert len(result) == 100
+
         for i in range(total / concurrency):
             assert len((yield motor.Op(db.benchmark.find().to_list))) == 100
 
         callback()
 
-    @gen.engine
     def start_tasks(callback):
         for i in range(concurrency):
-            find(callback=(yield gen.Callback(i)))
-
-        yield gen.WaitAll(range(concurrency))
-        callback()
+            find(total / concurrency)
 
     start_time = time.time()
     start_tasks(callback=loop.stop)

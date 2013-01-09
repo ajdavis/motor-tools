@@ -1,0 +1,43 @@
+Start an m1.medium AWS instance using Amazon Linux AMI
+
+Install Mongo:
+
+    echo "[10gen]
+    name=10gen Repository
+    baseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64
+    gpgcheck=0" | sudo tee -a /etc/yum.repos.d/10gen.repo
+
+    sudo yum -y install mongo-10gen-server
+
+At this point I suggest turning off journaling in /etc/mongod.conf and turning
+ulimit to 10000 in /etc/init.d/mongod before doing
+'sudo /etc/init.d/mongod start'. With -v mongod should log:
+
+    fd limit hard:9223372036854775807 soft:10000 max conn: 8000
+
+Install others:
+
+    sudo bash
+    yum install -y git gcc python-devel
+    easy_install pip
+    pip install virtualenvwrapper
+    . /usr/bin/virtualenvwrapper.sh
+    mkvirtualenv motorbench
+    cdvirtualenv
+    pip install argparse tornado greenlet asyncmongo git+https://github.com/ajdavis/mongo-python-driver.git@motor
+    git clone git@github.com:ajdavis/motor-tools.git
+
+Run the benchmark
+
+    cd motor-tools
+    ulimit -n 20000
+    python benchmark2/motor_throughput.py 1000
+
+
+TODO:
+    pymongo_throughput
+
+    --only-top
+
+    vary ipfw delay
+
