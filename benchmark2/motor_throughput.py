@@ -31,10 +31,12 @@ def connect():
     c = motor.MotorClient()
     c.open(callback=lambda result, error: loop.stop())
     loop.start()
+    assert c.connected
     return c
 
 
 c = connect()
+collection = c.test.test
 
 
 semaphore = toro.Semaphore(10)
@@ -47,11 +49,12 @@ def _post_fn(callback, result, error):
 
 # This is what we're benchmarking
 def _inner_fn(callback, semaphore_result):
-    c.test.test.find_one(callback=partial(_post_fn, callback))
+    collection.find_one(callback=partial(_post_fn, callback))
 
 
 def fn(callback):
-    semaphore.acquire(callback=partial(_inner_fn, callback))
+#    semaphore.acquire(callback=partial(_inner_fn, callback))
+    _inner_fn(callback, None)
 
 
 if __name__ == '__main__':

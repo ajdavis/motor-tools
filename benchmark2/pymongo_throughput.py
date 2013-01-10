@@ -14,27 +14,18 @@
 
 """MongoDB benchmarking suite."""
 
-import logging
-logging.getLogger().setLevel(1000) # silence everything
-
-import asyncmongo
-
+import pymongo
 import benchmark2_common
 
-
 def connect():
-    db = asyncmongo.Client(pool_id='mydb', host='127.0.0.1', port=27017, maxcached=6000, maxconnections=6000, dbname='test')
-    return db
+    return pymongo.MongoClient()
 
+c = connect()
+collection = c.test.test
 
-db = connect()
-collection = db.test
-
-
-# This is what we're benchmarking
-def fn(callback):
-    collection.find_one({}, callback=callback)
+def fn():
+    collection.find_one()
 
 
 if __name__ == '__main__':
-    benchmark2_common.main(fn, True)
+    benchmark2_common.main(fn, False)

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """MongoDB benchmarking suite."""
+import argparse
 import os
 
 from subprocess import check_output, Popen, PIPE, CalledProcessError
@@ -48,6 +49,8 @@ pat = r'^success (True|False) load (?P<load>\d+(\.\d+)?) throughput (?P<throughp
 
 
 def runit(command, load):
+    mongod = start_mongod()
+    time.sleep(10)
     try:
         output = check_output(['python2.7', command, str(load)])
         match = re.search(pat, output.strip(), re.M)
@@ -56,6 +59,8 @@ def runit(command, load):
     except CalledProcessError:
         # Process threw exception
         return 0, 0
+    finally:
+        stop_mongod(mongod)
 
 
 def printit(stats):
@@ -64,29 +69,71 @@ def printit(stats):
         print '\t'.join(['%.3f' % n for n in desired_load, load, throughput])
 
 
-def main(command):
-    desired_load = 1000
-    stats = []
-    while True:
-        mongod = start_mongod()
-        load, throughput = runit(command, desired_load)
-        stats.append((desired_load, float(load), float(throughput)))
-        stop_mongod(mongod)
-        print desired_load, load, throughput
+def parse_args():
+    parser = argparse.ArgumentParser(description=
+"""Find a function's highest throughput, either by subjecting it to ever-higher
+loads beginning at 1000 requests / sec, or by doing a binary search for the
+highest load it can sustain.""")
 
-        # If we didn't achieve 80% of desired load or 50% throughput, break
-        if float(load) / desired_load < .8 or float(throughput) / float(load) < .5:
-            break
+    parser.add_argument(
+        '--binary-search', '-b', dest='bsearch', action='store_true',
+        help="Binary-search for highest throughput")
 
-        if desired_load > 100000:
-            # Run out of patience
-            break
+    parser.add_argument(
+        'script', metavar="SCRIPT", help="The script to run")
 
-        desired_load += 1000
+    return parser.parse_args()
 
-    printit(stats)
+
+def main(args):
+    if args.bsearch:
+        max_throughput = 0
+
+        # Search between 1000 and 10,000
+        bottom, top = 1000, 10 * 1000
+        while True:
+            desired_load = (bottom + top) / 2
+            load, throughput = runit(args.script, desired_load)
+            max_throughput = max(throughput, max_throughput)
+            print desired_load, load, throughput
+
+            if (top - bottom) < 100:
+                # Close enough
+                print "I think", throughput, "is roughly the max throughput"
+                break
+            elif (float(load) / desired_load < .8
+                or float(throughput) / float(load) < .9):
+                # If we didn't achieve 80% of desired load or 90% throughput,
+                # turn it down
+                top = desired_load
+            else:
+                # Turn it up
+                bottom = desired_load
+
+            time.sleep(10) # breathe
+
+    else:
+        stats = []
+        desired_load = 1000
+        while True:
+            load, throughput = runit(args.script, desired_load)
+            stats.append((desired_load, float(load), float(throughput)))
+            print desired_load, load, throughput
+
+            # If we didn't achieve 80% of desired load or 50% throughput, break
+            if float(load) / desired_load < .8 or float(throughput) / float(load) < .5:
+                break
+
+            if desired_load > 100000:
+                # Run out of patience
+                break
+
+            desired_load += 1000
+            time.sleep(1) # breathe
+
+        printit(stats)
 
 
 if __name__ == '__main__':
     check_ulimit()
-    main(sys.argv[1])
+    main(parse_args())

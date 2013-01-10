@@ -27,7 +27,7 @@ import pymongo
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Benchmark a script')
     parser.add_argument(
         'load', type=int, help='Number of requests to begin per second')
     return parser.parse_args()
@@ -62,13 +62,12 @@ def async_trial(fn, load, duration, warmup):
                     st.ncompleted += 1
 
         def log():
-            return
-            print 'so far', now - start, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted_after_warmup, 'ncompleted', st.ncompleted
+            print 'so far', now - start, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted
 
         def bail(exc):
-            print exc
+            print 'bail', exc
             st.success = False
-            loop.stop()
+#            loop.stop()
 
         now = time.time()
         while (now - start) < total_duration:
@@ -125,7 +124,7 @@ class Worker(threading.Thread):
                 self.pool.callback()
             except Exception, e:
                 print e
-                self.pool.exc_callback()
+                self.pool.exc_callback(e)
             finally:
                 with self.pool.lock:
                     self.pool.working.remove(self)
