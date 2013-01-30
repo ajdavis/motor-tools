@@ -1,3 +1,5 @@
+To run this stuff:
+
 Start an m1.medium AWS instance using Amazon Linux AMI
 
 Install Mongo:
@@ -28,11 +30,13 @@ Install others:
     cd motor-tools
     pip install -r requirements.txt
 
-Run the benchmark
+Run a benchmark
 
     cd benchmark_concurrent
     ulimit -n 20000
+    python pymongo_throughput.py 1000
     python motor_throughput.py 1000
+    python asyncmongo_throughput.py 1000
 
 Run a series of benchmarks, searching for max throughput (bench.py starts
 mongod itself, so stop mongod first):
@@ -40,11 +44,3 @@ mongod itself, so stop mongod first):
     sudo /etc/init.d/mongod stop
     ulimit -n 20000
     python bench.py -b motor_throughput.py
-
-TODO:
-    pymongo_throughput
-
-    --only-top
-
-    vary ipfw delay
-
