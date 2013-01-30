@@ -50,14 +50,5 @@ if __name__ == '__main__':
     loop.start()
     assert c.connected
 
-#    def stop_loop(result, error):
-#        print 'stop_loop'
-#        loop.stop()
-#
-#    print 'preconnecting...'
-#    c.preconnect(2000, callback=stop_loop)
-#    loop.start()
-#    print 'ncreated', c.delegate._MongoClient__pool.ncreated, 'sockets', len(c.delegate._MongoClient__pool.sockets)
-
     collection = c.test.test
     benchmark2_common.main(log, c, fn, True)
