@@ -16,46 +16,48 @@
 
 from functools import partial
 import logging
-logging.getLogger().setLevel(1000) # silence everything
+from tornado import gen
+
+#logging.getLogger().setLevel(1000) # silence everything
 
 from tornado.ioloop import IOLoop
-import toro # from http://pypi.python.org/pypi/toro/
 import motor
+import bson
+assert bson._use_c
 import pymongo
-
+assert pymongo.has_c()
 import benchmark2_common
 
 
-def connect():
-    loop = IOLoop.instance()
-    c = motor.MotorClient()
-    c.open(callback=lambda result, error: loop.stop())
-    loop.start()
-    assert c.connected
-    return c
-
-
-c = connect()
-collection = c.test.test
-
-
-semaphore = toro.Semaphore(10)
-
-
-def _post_fn(callback, result, error):
-    semaphore.release()
-    callback(result, error)
-
-
-# This is what we're benchmarking
-def _inner_fn(callback, semaphore_result):
-    collection.find_one(callback=partial(_post_fn, callback))
+c = None
+collection = None
 
 
 def fn(callback):
-#    semaphore.acquire(callback=partial(_inner_fn, callback))
-    _inner_fn(callback, None)
+    collection.find_one(callback=callback)
 
+
+def log(sofar, c, st, seconds_remaining, nexpected):
+    try:
+        print 'so far', sofar, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted, 'pool socks', len(c.delegate._MongoClient__pool.sockets)
+    except Exception, e:
+        print e
 
 if __name__ == '__main__':
-    benchmark2_common.main(fn, True)
+    loop = IOLoop.instance()
+    c = motor.MotorClient(host='127.0.0.1', max_pool_size=6000, connectTimeoutMS=None)
+    c.open(callback=lambda result, error: loop.stop())
+    loop.start()
+    assert c.connected
+
+#    def stop_loop(result, error):
+#        print 'stop_loop'
+#        loop.stop()
+#
+#    print 'preconnecting...'
+#    c.preconnect(2000, callback=stop_loop)
+#    loop.start()
+#    print 'ncreated', c.delegate._MongoClient__pool.ncreated, 'sockets', len(c.delegate._MongoClient__pool.sockets)
+
+    collection = c.test.test
+    benchmark2_common.main(log, c, fn, True)

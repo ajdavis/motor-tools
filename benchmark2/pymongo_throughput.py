@@ -23,9 +23,17 @@ def connect():
 c = connect()
 collection = c.test.test
 
+
 def fn():
     collection.find_one()
 
 
+def log(sofar, c, st, seconds_remaining, nexpected, pool):
+    try:
+        print 'so far', sofar, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted, 'pool socks', len(c._MongoClient__pool.sockets), pool
+    except Exception, e:
+        print e
+
+
 if __name__ == '__main__':
-    benchmark2_common.main(fn, False)
+    benchmark2_common.main(log, c, fn, False)

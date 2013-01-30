@@ -18,13 +18,15 @@ import argparse
 import time
 import threading
 import math
-from Queue import Queue
 import sys
 
 from tornado import gen
 from tornado.ioloop import IOLoop
 import pymongo
+import bson
 
+assert pymongo.has_c()
+assert bson._use_c
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Benchmark a script')
@@ -33,7 +35,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def async_trial(fn, load, duration, warmup):
+def async_trial(log, c, fn, load, duration, warmup):
     # An object so it can be modified from inner functions
     class State(object):
         pass
@@ -44,6 +46,7 @@ def async_trial(fn, load, duration, warmup):
     st.nstarted = 0
     st.nstarted_after_warmup = 0
     st.ncompleted = 0
+    st.nloops = 0
 
     total_duration = duration + warmup
     loop = IOLoop.instance()
@@ -61,11 +64,9 @@ def async_trial(fn, load, duration, warmup):
                 if warmup <= (time.time() - start) < warmup + duration:
                     st.ncompleted += 1
 
-        def log():
-            print 'so far', now - start, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted
-
         def bail(exc):
-            print 'bail', exc
+            sys.stdout.write('E')
+            sys.stdout.flush()
             st.success = False
 #            loop.stop()
 
@@ -86,14 +87,17 @@ def async_trial(fn, load, duration, warmup):
                     bail(e)
 
             if now - last_logged > 1:
-                log()
+                log(now - start, c, st, seconds_remaining, nexpected)
                 last_logged = now
 
             yield gen.Task(loop.add_timeout, now + 0.0001)
+            st.nloops += 1
 
             now = time.time()
 
-        log()
+        sofar = time.time() - start
+        print 'nloops', st.nloops
+        log(sofar, c, st, seconds_remaining, nexpected)
         callback()
 
     _trial(loop.stop)
@@ -145,8 +149,7 @@ class ThreadPool:
 
     def add_task(self, func):
         try:
-            with self.lock:
-                worker = self.idle.pop()
+            worker = self.idle.pop()
         except KeyError:
             worker = Worker(self)
 
@@ -160,8 +163,12 @@ class ThreadPool:
             for w in self.working:
                 w.stopped = True
 
+    def __str__(self):
+        return 'ThreadPool(%d working, %d idle)' % (
+            len(self.working), len(self.idle))
 
-def sync_trial(fn, load, duration, warmup):
+
+def sync_trial(log, c, fn, load, duration, warmup):
     # An object so it can be modified from inner functions
     class State(object):
         pass
@@ -181,10 +188,6 @@ def sync_trial(fn, load, duration, warmup):
         st.qlen -= 1
         if warmup <= (time.time() - start) < warmup + duration:
             st.ncompleted += 1
-
-    def log():
-        return
-        print 'so far', now - start, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted_after_warmup, 'ncompleted', st.ncompleted
 
     def bail(exc_info):
         print exc_info
@@ -209,24 +212,24 @@ def sync_trial(fn, load, duration, warmup):
                 bail(e)
 
         if now - last_logged > 1:
-            log()
+            log(now - start, c, st, seconds_remaining, nexpected, pool)
             last_logged = now
 
         time.sleep(0.0001)
 
         now = time.time()
 
-    log()
+    log(now - start, c, st, seconds_remaining, nexpected, pool)
     return st.success, st.nstarted_after_warmup / float(duration), st.ncompleted / float(duration)
 
 
-def main(fn, is_async):
+def main(log, c, fn, is_async):
     args = parse_args()
     sync_client = pymongo.MongoClient()
     sync_client.drop_database('test')
     sync_client.test.test.insert({})
     if is_async:
-        success, load, throughput = async_trial(fn, args.load, 5, 2)
+        success, load, throughput = async_trial(log, c, fn, args.load, 5, 2)
     else:
-        success, load, throughput = sync_trial(fn, args.load, 5, 2)
+        success, load, throughput = sync_trial(log, c, fn, args.load, 5, 2)
     print 'success', success, 'load', load, 'throughput', throughput

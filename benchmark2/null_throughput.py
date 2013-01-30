@@ -21,5 +21,9 @@ def fn(callback):
     callback(None, None)
 
 
+def log(sofar, c, st, seconds_remaining, nexpected):
+    print 'so far', sofar, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted
+
+
 if __name__ == '__main__':
-    benchmark2_common.main(fn, True)
+    benchmark2_common.main(log, None, fn, True)

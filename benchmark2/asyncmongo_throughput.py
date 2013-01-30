@@ -35,6 +35,11 @@ collection = db.test
 def fn(callback):
     collection.find_one({}, callback=callback)
 
+def log(sofar, c, st, seconds_remaining, nexpected):
+    try:
+        print 'so far', sofar, 'seconds_remaining', round(seconds_remaining, 2), 'nexpected', nexpected, 'qlen', st.qlen, 'nstarted', st.nstarted, 'ncompleted', st.ncompleted, 'pool socks', len(c._pool._idle_cache)
+    except Exception, e:
+        print e
 
 if __name__ == '__main__':
-    benchmark2_common.main(fn, True)
+    benchmark2_common.main(log, db, fn, True)

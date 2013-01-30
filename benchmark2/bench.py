@@ -19,7 +19,6 @@ import os
 from subprocess import check_output, Popen, PIPE, CalledProcessError
 from shutil import rmtree
 import re
-import sys
 import time
 
 
@@ -55,7 +54,8 @@ def runit(command, load):
         output = check_output(['python2.7', command, str(load)])
         match = re.search(pat, output.strip(), re.M)
         assert match, output.strip()
-        return match.group('load'), match.group('throughput')
+        load, throughput = match.group('load'), match.group('throughput')
+        return float(throughput)
     except CalledProcessError:
         # Process threw exception
         return 0, 0
@@ -85,7 +85,24 @@ highest load it can sustain.""")
     return parser.parse_args()
 
 
+def runit_n_times(script, desired_load, samples):
+    breathing_seconds = 10
+    throughput_samples = []
+
+    for i in range(samples):
+        throughput = runit(script, desired_load)
+        throughput_samples.append(throughput)
+        time.sleep(breathing_seconds)
+
+    print 'desired_load', desired_load, 'samples', throughput_samples
+    return (
+        sum(throughput_samples) - max(throughput_samples) - min(throughput_samples)
+    ) / (float(samples) - 2)
+
+
 def main(args):
+    samples = 5
+
     if args.bsearch:
         max_throughput = 0
 
@@ -93,35 +110,33 @@ def main(args):
         bottom, top = 1000, 10 * 1000
         while True:
             desired_load = (bottom + top) / 2
-            load, throughput = runit(args.script, desired_load)
+            throughput = runit_n_times(args.script, desired_load, samples)
             max_throughput = max(throughput, max_throughput)
-            print desired_load, load, throughput
 
             if (top - bottom) < 100:
                 # Close enough
                 print "I think", throughput, "is roughly the max throughput"
                 break
-            elif (float(load) / desired_load < .8
-                or float(throughput) / float(load) < .9):
-                # If we didn't achieve 80% of desired load or 90% throughput,
-                # turn it down
+            elif float(throughput) / float(desired_load) < .9:
+                # If we didn't achieve 90% of desired throughput, turn it down
+                print desired_load, throughput, 'too high'
                 top = desired_load
             else:
                 # Turn it up
+                print desired_load, throughput, 'too low'
                 bottom = desired_load
-
-            time.sleep(10) # breathe
 
     else:
         stats = []
         desired_load = 1000
         while True:
-            load, throughput = runit(args.script, desired_load)
+            throughput = runit_n_times(args.script, desired_load, samples)
             stats.append((desired_load, float(load), float(throughput)))
-            print desired_load, load, throughput
+            print desired_load, throughput
 
-            # If we didn't achieve 80% of desired load or 50% throughput, break
-            if float(load) / desired_load < .8 or float(throughput) / float(load) < .5:
+            if float(throughput) / float(desired_load) < .9:
+                # If we didn't achieve 90% of desired throughput, turn it down
+                print desired_load, throughput, 'too high'
                 break
 
             if desired_load > 100000:
@@ -129,7 +144,6 @@ def main(args):
                 break
 
             desired_load += 1000
-            time.sleep(1) # breathe
 
         printit(stats)
 
